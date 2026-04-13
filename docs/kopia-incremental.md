@@ -76,17 +76,34 @@ Every chunk has new content, new hashes, new content IDs. Nothing deduplicates. 
 
 Since deduplication is content-addressed across the entire repository, if you copy `fileA` to `fileB`, all of `fileB`'s chunks will have the same content IDs as `fileA`'s. Every chunk is already present. Nothing new is stored.
 
+
+### 4. What gets reported as "Incremental Bytes" on the DataUpload
+
+What is actually transferred is not generally the same as what is reported as Incremental Bytes on the DataUpload. The reason for this is that Incremental Bytes refers to the content on the volume that was processed by Kopia rather than the number of bytes transferred.  Considering the same four scenarios above:
+
+#### Scenario A: File doesn't change at all
+**Incremental Bytes: 0 bytes.**
+
+#### Scenario B: File partially changes (e.g., edit a few lines in the middle of a large file)
+**Incremental Bytes: up to the full file size.**
+
+#### Scenario C: File completely changes (e.g., replaced with entirely new content)
+**Incremental Bytes: the full file size.**
+
+#### Scenario D: File is a copy of another file already in the repo
+**Incremental Bytes: the full file size.**
+
 ---
 
 ### Summary Table for Users
 
-| Scenario | File Read? | Data Transferred | Why |
+| Scenario | File Read? | Data Transferred | Incremental Bytes | Why |
 |---|---|---|---|
-| Unchanged file | No | 0 | Metadata cache hit from previous snapshot |
-| Small edit in large file | Yes | ~1-2 chunks (~4-8 MB) | CDC boundaries resync; only affected chunks are new |
-| Large edit / rewrite | Yes | ~proportional to changed region | New chunks for changed regions; unchanged regions dedup |
-| Completely new content | Yes | Full file | All chunks are new |
-| Duplicate of existing file | Yes | 0 | All chunks already exist (content-addressed) |
+| Unchanged file | No | 0 | 0 | Metadata cache hit from previous snapshot |
+| Small edit in large file | Yes | ~1-2 chunks (~4-8 MB) | Up to full file size | CDC boundaries resync; only affected chunks are new, entire file processed by Kopia |
+| Large edit / rewrite | Yes | ~proportional to changed region | Up to full file size | New chunks for changed regions; unchanged regions dedup |
+| Completely new content | Yes | Full file | Full file | All chunks are new |
+| Duplicate of existing file | Yes | 0 | Full file | All chunks already exist (content-addressed), but full file must be processed to determine that |
 
 ### The Object Model
 
